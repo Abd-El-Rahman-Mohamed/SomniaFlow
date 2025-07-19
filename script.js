@@ -14,6 +14,12 @@ class BabyMonitorApp {
         this.videoElement = null;
         this.firestoreUnsubscribe = null;
         
+        // Recording functionality
+        this.mediaRecorder = null;
+        this.recordedChunks = [];
+        this.recordingStartTime = null;
+        this.recordingTimer = null;
+        
         this.init();
     }
 
@@ -58,11 +64,7 @@ class BabyMonitorApp {
             });
         });
 
-        // Live badge click
-        const liveBadge = document.querySelector('.live-badge');
-        if (liveBadge) {
-            liveBadge.addEventListener('click', () => this.toggleLive());
-        }
+        // Live badge is now static (no click functionality)
 
         // Touch gestures
         this.setupTouchGestures();
@@ -72,7 +74,7 @@ class BabyMonitorApp {
     }
 
     handleCameraControl(index, button) {
-        const actions = ['audio', 'photo', 'record', 'fullscreen'];
+        const actions = ['photo', 'record', 'fullscreen'];
         const action = actions[index];
         
         // Add visual feedback
@@ -82,9 +84,6 @@ class BabyMonitorApp {
         }, 150);
         
         switch(action) {
-            case 'audio':
-                this.toggleAudio();
-                break;
             case 'photo':
                 this.takePhoto();
                 break;
@@ -102,26 +101,500 @@ class BabyMonitorApp {
         this.showNotification('Audio ' + (Math.random() > 0.5 ? 'enabled' : 'muted'));
     }
 
-    takePhoto() {
-        console.log('Photo taken');
-        this.showNotification('Photo saved to gallery');
-        this.flashEffect();
+    async takePhoto() {
+        console.log('Taking photo...');
+        
+        try {
+            let imageData = null;
+            const videoElement = document.getElementById('babyVideo');
+            
+            // Method 1: Capture from video element if available
+            if (videoElement && videoElement.style.display === 'block' && !videoElement.paused) {
+                console.log('Capturing screenshot from video element');
+                imageData = await this.captureVideoFrame(videoElement);
+            }
+            
+            // Method 2: Capture camera section using html2canvas (fallback)
+            if (!imageData) {
+                console.log('Capturing screenshot from camera section');
+                imageData = await this.captureCameraSection();
+            }
+            
+            // Method 3: Use screen capture API (final fallback)
+            if (!imageData) {
+                console.log('Using screen capture for screenshot');
+                imageData = await this.captureScreenshot();
+            }
+            
+            if (imageData) {
+                // Save the screenshot
+                this.saveScreenshot(imageData);
+                this.flashEffect();
+                this.showNotification('Screenshot saved successfully');
+                
+                // Log analytics
+                if (window.firebaseAnalytics && window.firebaseLogEvent) {
+                    try {
+                        window.firebaseLogEvent(window.firebaseAnalytics, 'screenshot_taken', {
+                            timestamp: new Date().toISOString(),
+                            method: imageData.method || 'unknown'
+                        });
+                    } catch (error) {
+                        console.warn('Failed to log screenshot analytics:', error);
+                    }
+                }
+                
+                console.log('Screenshot taken successfully');
+            } else {
+                throw new Error('Failed to capture screenshot');
+            }
+            
+        } catch (error) {
+            console.error('Error taking screenshot:', error);
+            this.showNotification('Screenshot failed: ' + error.message);
+        }
     }
 
-    toggleRecording(button) {
-        this.isRecording = !this.isRecording;
+    async captureVideoFrame(videoElement) {
+        try {
+            // Create canvas to capture video frame
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas dimensions to match video
+            canvas.width = videoElement.videoWidth || videoElement.clientWidth;
+            canvas.height = videoElement.videoHeight || videoElement.clientHeight;
+            
+            // Draw current video frame to canvas
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            
+            // Convert to blob
+            return new Promise((resolve) => {
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve({
+                            blob: blob,
+                            method: 'video_frame',
+                            width: canvas.width,
+                            height: canvas.height
+                        });
+                    } else {
+                        resolve(null);
+                    }
+                }, 'image/png', 1.0);
+            });
+            
+        } catch (error) {
+            console.error('Error capturing video frame:', error);
+            return null;
+        }
+    }
+
+    async captureCameraSection() {
+        try {
+            // Check if html2canvas is available (would need to be loaded)
+            if (typeof html2canvas !== 'undefined') {
+                const cameraSection = document.querySelector('.camera-section');
+                const canvas = await html2canvas(cameraSection, {
+                    backgroundColor: null,
+                    scale: 2, // Higher quality
+                    logging: false
+                });
+                
+                return new Promise((resolve) => {
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            resolve({
+                                blob: blob,
+                                method: 'html2canvas',
+                                width: canvas.width,
+                                height: canvas.height
+                            });
+                        } else {
+                            resolve(null);
+                        }
+                    }, 'image/png', 1.0);
+                });
+            }
+            
+            // Fallback: Manual canvas capture of visible elements
+            return await this.manualCanvasCapture();
+            
+        } catch (error) {
+            console.error('Error capturing camera section:', error);
+            return null;
+        }
+    }
+
+    async manualCanvasCapture() {
+        try {
+            const cameraFeed = document.querySelector('.camera-feed');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            const rect = cameraFeed.getBoundingClientRect();
+            canvas.width = rect.width * 2; // Higher resolution
+            canvas.height = rect.height * 2;
+            
+            // Scale context for higher resolution
+            ctx.scale(2, 2);
+            
+            // Fill background
+            ctx.fillStyle = '#1e3a5f';
+            ctx.fillRect(0, 0, rect.width, rect.height);
+            
+            // Try to capture video element if visible
+            const videoElement = document.getElementById('babyVideo');
+            if (videoElement && videoElement.style.display === 'block') {
+                ctx.drawImage(videoElement, 0, 0, rect.width, rect.height);
+            } else {
+                // Draw fallback content
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '16px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Baby Monitor Screenshot', rect.width / 2, rect.height / 2);
+                ctx.fillText(new Date().toLocaleString(), rect.width / 2, rect.height / 2 + 30);
+            }
+            
+            return new Promise((resolve) => {
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve({
+                            blob: blob,
+                            method: 'manual_canvas',
+                            width: canvas.width,
+                            height: canvas.height
+                        });
+                    } else {
+                        resolve(null);
+                    }
+                }, 'image/png', 1.0);
+            });
+            
+        } catch (error) {
+            console.error('Error with manual canvas capture:', error);
+            return null;
+        }
+    }
+
+    async captureScreenshot() {
+        try {
+            if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+                // Request screen capture
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        mediaSource: 'screen',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+                
+                // Create video element to capture frame
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.play();
+                
+                return new Promise((resolve) => {
+                    video.addEventListener('loadedmetadata', () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        
+                        ctx.drawImage(video, 0, 0);
+                        
+                        // Stop stream
+                        stream.getTracks().forEach(track => track.stop());
+                        
+                        canvas.toBlob((blob) => {
+                            if (blob) {
+                                resolve({
+                                    blob: blob,
+                                    method: 'screen_capture',
+                                    width: canvas.width,
+                                    height: canvas.height
+                                });
+                            } else {
+                                resolve(null);
+                            }
+                        }, 'image/png', 1.0);
+                    });
+                });
+                
+            } else {
+                throw new Error('Screen capture not supported');
+            }
+            
+        } catch (error) {
+            console.error('Error with screen capture:', error);
+            return null;
+        }
+    }
+
+    saveScreenshot(imageData) {
+        try {
+            // Create download link
+            const url = URL.createObjectURL(imageData.blob);
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `baby-monitor-screenshot-${timestamp}.png`;
+            
+            // Auto-download the screenshot
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            // Clean up
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            
+            console.log(`Screenshot saved: ${filename} (${imageData.width}x${imageData.height}, ${Math.round(imageData.blob.size / 1024)}KB)`);
+            
+        } catch (error) {
+            console.error('Error saving screenshot:', error);
+            throw error;
+        }
+    }
+
+    async toggleRecording(button) {
+        if (!this.isRecording) {
+            // Start recording
+            try {
+                await this.startRecording(button);
+            } catch (error) {
+                console.error('Failed to start recording:', error);
+                this.showNotification('Recording failed: ' + error.message);
+            }
+        } else {
+            // Stop recording
+            this.stopRecording(button);
+        }
+    }
+
+    async startRecording(button) {
+        console.log('Starting recording...');
         
-        if (this.isRecording) {
+        // Reset recorded chunks
+        this.recordedChunks = [];
+        
+        try {
+            let stream = null;
+            
+            // Try to record the video element directly if it's playing
+            const videoElement = document.getElementById('babyVideo');
+            if (videoElement && videoElement.style.display === 'block' && !videoElement.paused) {
+                // Capture video element stream
+                if (videoElement.captureStream) {
+                    stream = videoElement.captureStream();
+                    console.log('Recording video element stream');
+                } else if (videoElement.mozCaptureStream) {
+                    stream = videoElement.mozCaptureStream();
+                    console.log('Recording video element stream (Firefox)');
+                }
+            }
+            
+            // Fallback to screen capture of camera section
+            if (!stream) {
+                const cameraSection = document.querySelector('.camera-section');
+                if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+                    // Use screen capture API
+                    stream = await navigator.mediaDevices.getDisplayMedia({
+                        video: {
+                            mediaSource: 'screen',
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 }
+                        },
+                        audio: false
+                    });
+                    console.log('Recording screen capture');
+                } else {
+                    throw new Error('Screen recording not supported');
+                }
+            }
+            
+            // Create MediaRecorder
+            const options = {
+                mimeType: 'video/webm;codecs=vp9',
+                videoBitsPerSecond: 2500000 // 2.5 Mbps
+            };
+            
+            // Fallback mime types if vp9 not supported
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                options.mimeType = 'video/webm;codecs=vp8';
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options.mimeType = 'video/webm';
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options.mimeType = 'video/mp4';
+                    }
+                }
+            }
+            
+            this.mediaRecorder = new MediaRecorder(stream, options);
+            
+            // Set up event listeners
+            this.mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    this.recordedChunks.push(event.data);
+                    console.log('Recording chunk received:', event.data.size, 'bytes');
+                }
+            };
+            
+            this.mediaRecorder.onstop = () => {
+                console.log('Recording stopped, processing...');
+                this.processRecording();
+                
+                // Stop all tracks to release resources
+                stream.getTracks().forEach(track => track.stop());
+            };
+            
+            this.mediaRecorder.onerror = (event) => {
+                console.error('MediaRecorder error:', event.error);
+                this.showNotification('Recording error: ' + event.error.message);
+                this.resetRecordingState(button);
+            };
+            
+            // Start recording
+            this.mediaRecorder.start(1000); // Collect data every second
+            this.isRecording = true;
+            this.recordingStartTime = new Date();
+            
+            // Update UI
             button.style.background = 'rgba(239, 68, 68, 0.3)';
             button.style.color = '#ef4444';
+            button.style.animation = 'pulse 1s infinite';
+            
+            // Start recording timer
+            this.startRecordingTimer();
+            
             this.showNotification('Recording started');
-        } else {
-            button.style.background = 'rgba(255, 255, 255, 0.2)';
-            button.style.color = 'rgba(255, 255, 255, 0.8)';
-            this.showNotification('Recording stopped');
+            console.log('Recording started successfully');
+            
+            // Log analytics
+            if (window.firebaseAnalytics && window.firebaseLogEvent) {
+                try {
+                    window.firebaseLogEvent(window.firebaseAnalytics, 'recording_started', {
+                        timestamp: new Date().toISOString(),
+                        mime_type: options.mimeType
+                    });
+                } catch (error) {
+                    console.warn('Failed to log recording analytics:', error);
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error starting recording:', error);
+            this.resetRecordingState(button);
+            throw error;
+        }
+    }
+
+    stopRecording(button) {
+        console.log('Stopping recording...');
+        
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+            this.mediaRecorder.stop();
         }
         
-        console.log('Recording:', this.isRecording ? 'started' : 'stopped');
+        this.isRecording = false;
+        this.resetRecordingState(button);
+        this.stopRecordingTimer();
+        
+        this.showNotification('Recording stopped');
+        console.log('Recording stopped');
+    }
+
+    resetRecordingState(button) {
+        // Reset button appearance
+        button.style.background = 'rgba(255, 255, 255, 0.2)';
+        button.style.color = 'rgba(255, 255, 255, 0.8)';
+        button.style.animation = '';
+        
+        this.isRecording = false;
+    }
+
+    startRecordingTimer() {
+        // Update recording duration every second
+        this.recordingTimer = setInterval(() => {
+            if (this.recordingStartTime) {
+                const duration = Math.floor((new Date() - this.recordingStartTime) / 1000);
+                const minutes = Math.floor(duration / 60);
+                const seconds = duration % 60;
+                const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                // You could display this timer somewhere in the UI
+                console.log('Recording duration:', timeString);
+            }
+        }, 1000);
+    }
+
+    stopRecordingTimer() {
+        if (this.recordingTimer) {
+            clearInterval(this.recordingTimer);
+            this.recordingTimer = null;
+        }
+    }
+
+    processRecording() {
+        if (this.recordedChunks.length === 0) {
+            console.warn('No recorded data available');
+            this.showNotification('No recording data available');
+            return;
+        }
+        
+        console.log('Processing recording with', this.recordedChunks.length, 'chunks');
+        
+        // Create blob from recorded chunks
+        const blob = new Blob(this.recordedChunks, {
+            type: this.mediaRecorder.mimeType || 'video/webm'
+        });
+        
+        console.log('Recording blob created:', blob.size, 'bytes');
+        
+        // Create download link
+        const url = URL.createObjectURL(blob);
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `baby-monitor-recording-${timestamp}.webm`;
+        
+        // Auto-download the recording
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        // Clean up
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        
+        // Calculate recording duration
+        const duration = this.recordingStartTime ? 
+            Math.floor((new Date() - this.recordingStartTime) / 1000) : 0;
+        
+        this.showNotification(`Recording saved: ${filename} (${duration}s)`);
+        
+        // Log analytics
+        if (window.firebaseAnalytics && window.firebaseLogEvent) {
+            try {
+                window.firebaseLogEvent(window.firebaseAnalytics, 'recording_completed', {
+                    duration_seconds: duration,
+                    file_size_bytes: blob.size,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (error) {
+                console.warn('Failed to log recording completion analytics:', error);
+            }
+        }
+        
+        // Reset
+        this.recordedChunks = [];
+        this.recordingStartTime = null;
+        
+        console.log('Recording processed and saved successfully');
     }
 
     toggleFullscreen() {
