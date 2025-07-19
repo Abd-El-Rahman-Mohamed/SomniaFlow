@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baby Monitor - Sleep Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2c5282">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Baby Monitor">
+</head>
+
+<body>
+    <main class="app-container">
+        <div class="phone-frame">
+            <!-- Status Bar -->
+            <header class="status-bar">
+            </header>
+
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Greeting Section -->
+                <section class="greeting-section">
+                    <h1 class="greeting">Hi,</h1>
+                    <h2 class="sleep-status">Jonathan is in deep sleep</h2>
+                </section>
+
+                <!-- Sleep Statistics -->
+                <section class="sleep-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">4h 40m</div>
+                        <div class="stat-label">Baby in bed for</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">03:00 am</div>
+                        <div class="stat-label">Start time</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">2+</div>
+                        <div class="stat-label">Wake ups</div>
+                    </div>
+                </section>
+
+                <!-- Camera Feed -->
+                <section class="camera-section">
+                    <div class="live-badge">
+                        <span class="live-dot"></span>
+                        LIVE
+                    </div>
+                    <div class="camera-feed">
+                        <!-- Loading state -->
+                        <div class="video-loading" id="videoLoading">
+                            <div class="loading-spinner"></div>
+                            <p>Loading camera feed...</p>
+                        </div>
+
+                        <!-- Video element -->
+                        <video id="babyVideo" class="baby-video" autoplay muted loop playsinline style="display: none;">
+                            Your browser does not support the video tag.
+                        </video>
+
+                        <!-- Fallback placeholder -->
+                        <div class="baby-crib fallback" id="fallbackCrib" style="display: none;">
+                            <!-- Crib slats background -->
+                            <div class="crib-slats"></div>
+                            <!-- Baby illustration -->
+                            <div class="baby-figure">
+                                <div class="baby-body"></div>
+                                <div class="baby-head"></div>
+                                <div class="baby-outfit"></div>
+                            </div>
+                        </div>
+
+                        <!-- Error state -->
+                        <div class="video-error" id="videoError" style="display: none;">
+                            <div class="error-icon">⚠️</div>
+                            <p>Camera feed unavailable</p>
+                            <button class="retry-btn" onclick="window.babyMonitorApp?.loadVideoFeed()">Retry</button>
+                        </div>
+                    </div>
+                    <div class="camera-controls">
+                        <button class="control-btn" aria-label="Audio">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M3 7v6h4l5 5V2l-5 5H3z" fill="currentColor" />
+                                <path d="M15.54 8.46a5 5 0 0 1 0 7.07M13.07 6.93a8 8 0 0 1 0 11.14"
+                                    stroke="currentColor" stroke-width="1.5" fill="none" />
+                            </svg>
+                        </button>
+                        <button class="control-btn" aria-label="Take Photo">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.5"
+                                    fill="none" />
+                                <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5" fill="none" />
+                                <rect x="6" y="2" width="8" height="2" rx="1" fill="currentColor" />
+                            </svg>
+                        </button>
+                        <button class="control-btn record-btn" aria-label="Record">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <circle cx="10" cy="10" r="6" fill="currentColor" />
+                            </svg>
+                        </button>
+                        <button class="control-btn" aria-label="Fullscreen">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M3 3h4M17 3h-4M3 17h4M17 17h-4" stroke="currentColor" stroke-width="1.5" />
+                                <path d="M7 7h6v6H7z" stroke="currentColor" stroke-width="1.5" fill="none" />
+                            </svg>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Heart Rate Tracking -->
+                <section class="heart-rate-section">
+                    <div class="heart-rate-header">
+                        <div class="heart-rate-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 2L13.09 8.26L20 9L13.09 9.74L12 16L10.91 9.74L4 9L10.91 8.26L12 2Z"
+                                    fill="currentColor" />
+                            </svg>
+                        </div>
+                        <div class="heart-rate-info">
+                            <div class="heart-rate-label">Heart Rate</div>
+                            <div class="heart-rate-value">76 bpm</div>
+                        </div>
+                    </div>
+                    <div class="heart-rate-chart">
+                        <svg class="heartbeat-svg" viewBox="0 0 300 50" preserveAspectRatio="none">
+                            <path class="heartbeat-line"
+                                d="M0,25 L30,25 L35,5 L40,45 L45,25 L50,25 L80,25 L85,5 L90,45 L95,25 L100,25 L130,25 L135,5 L140,45 L145,25 L150,25 L180,25 L185,5 L190,45 L195,25 L200,25 L230,25 L235,5 L240,45 L245,25 L250,25 L280,25 L285,5 L290,45 L295,25 L300,25"
+                                stroke="#4FC3F7" stroke-width="2" fill="none" />
+                        </svg>
+                    </div>
+                </section>
+
+                <!-- Environment Data -->
+                <section class="environment-section">
+                    <!-- <div class="temperature-display">
+                        <div class="temp-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                                <circle cx="11.5" cy="18.5" r="1.5" fill="currentColor"/>
+                            </svg>
+                        </div>
+                        <div class="temp-info">
+                            <div class="temp-label">Temperature</div>
+                            <div class="temp-value">22°C</div>
+                        </div>
+                    </div> -->
+                    <div class="oxygen-display">
+                        <div class="oxygen-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 4C7.58 4 4 7.58 4 12s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8z"
+                                    stroke="currentColor" stroke-width="1.5" fill="none" />
+                                <path d="M12 7v10M7 12h10" stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                        </div>
+                        <div class="oxygen-info">
+                            <div class="oxygen-label">Oxygen Rate</div>
+                            <div class="oxygen-value">97</div>
+                        </div>
+                    </div>
+                    <div class="env-metrics">
+                        <div class="env-metric">
+                            <div class="env-icon">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M3 10h14M10 3l7 7-7 7" stroke="currentColor" stroke-width="1.5"
+                                        fill="none" />
+                                </svg>
+                            </div>
+                            <div class="env-info">
+                                <div class="env-label">Air quality</div>
+                                <div class="env-value">Good</div>
+                            </div>
+                        </div>
+                        <div class="env-metric">
+                            <div class="env-icon">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M10 2v16M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.5" />
+                                </svg>
+                            </div>
+                            <div class="env-info">
+                                <div class="env-label">Humidity</div>
+                                <div class="env-value">40</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Bottom Navigation -->
+            <nav class="bottom-nav">
+                <button class="nav-item active" data-tab="dashboard">
+                    <div class="nav-icon">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <rect x="3" y="3" width="6" height="6" rx="1" fill="currentColor" />
+                            <rect x="11" y="3" width="6" height="6" rx="1" fill="currentColor" />
+                            <rect x="3" y="11" width="6" height="6" rx="1" fill="currentColor" />
+                            <rect x="11" y="11" width="6" height="6" rx="1" fill="currentColor" />
+                        </svg>
+                    </div>
+                    <span class="nav-label">Dashboard</span>
+                </button>
+                <button class="nav-item" data-tab="insights">
+                    <div class="nav-icon">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M3 17l4-4 4 4 6-6" stroke="currentColor" stroke-width="1.5" fill="none" />
+                            <path d="M17 7v4h-4" stroke="currentColor" stroke-width="1.5" fill="none" />
+                        </svg>
+                    </div>
+                    <span class="nav-label">Insights</span>
+                </button>
+                <button class="nav-item" data-tab="devices">
+                    <div class="nav-icon">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" stroke-width="1.5"
+                                fill="none" />
+                            <circle cx="10" cy="15" r="1" fill="currentColor" />
+                        </svg>
+                    </div>
+                    <span class="nav-label">Devices</span>
+                </button>
+            </nav>
+        </div>
+    </main>
+
+    <!-- Firebase Configuration -->
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+        import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-analytics.js";
+        import { getFirestore, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+
+        // Your web app's Firebase configuration
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+            apiKey: "AIzaSyDs5BHRstt7B187TxsVVBq5TV8kRuqrLEQ",
+            authDomain: "somniaflow.firebaseapp.com",
+            projectId: "somniaflow",
+            storageBucket: "somniaflow.firebasestorage.app",
+            messagingSenderId: "412578228684",
+            appId: "1:412578228684:web:d683aba5bef1c22657d569",
+            measurementId: "G-JCZCSWPG4K"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
+
+        // Make Firebase services available globally for the main script
+        window.firebaseApp = app;
+        window.firebaseAnalytics = analytics;
+        window.firebaseDb = db;
+        window.firestoreDoc = doc;
+        window.firestoreGetDoc = getDoc;
+        window.firestoreOnSnapshot = onSnapshot;
+        window.firebaseLogEvent = logEvent;
+        
+        console.log('Firebase initialized successfully');
+    </script>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
