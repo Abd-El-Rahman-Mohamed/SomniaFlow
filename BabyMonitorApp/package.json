@@ -1,0 +1,43 @@
+{
+  "name": "com.somniaflow.babymonitor",
+  "displayName": "Baby Monitor",
+  "version": "1.0.0",
+  "description": "A sample Apache Cordova application that responds to the deviceready event.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ecosystem:cordova"
+  ],
+  "author": "Apache Cordova Team",
+  "license": "Apache-2.0",
+  "cordova": {
+    "plugins": {
+      "cordova-plugin-whitelist": {},
+      "cordova-plugin-camera": {
+        "ANDROIDX_CORE_VERSION": "1.6.+"
+      },
+      "cordova-plugin-device": {},
+      "cordova-plugin-statusbar": {},
+      "cordova-plugin-splashscreen": {},
+      "cordova-plugin-media-capture": {},
+      "cordova-plugin-file": {},
+      "cordova-plugin-file-transfer": {},
+      "cordova-plugin-network-information": {},
+      "cordova-plugin-vibration": {},
+      "cordova-plugin-screen-orientation": {},
+      "cordova-plugin-inappbrowser": {}
+    }
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "cordova-plugin-media-capture": "^4.0.0",
+    "cordova-plugin-file": "^7.0.0",
+    "cordova-plugin-file-transfer": "^2.0.0",
+    "cordova-plugin-network-information": "^3.0.0",
+    "cordova-plugin-vibration": "^3.1.1",
+    "cordova-plugin-screen-orientation": "^3.0.2",
+    "cordova-plugin-inappbrowser": "^5.0.0"
+  }
+}
