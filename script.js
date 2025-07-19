@@ -675,7 +675,86 @@ class BabyMonitorApp {
         
         const tab = clickedItem.dataset.tab;
         console.log(`Navigated to ${tab}`);
-        this.showNotification(`Switched to ${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+        
+        // Handle different tabs
+        if (tab === 'dashboard') {
+            this.showDashboard();
+            this.showNotification('Dashboard');
+        } else if (tab === 'insights' || tab === 'devices') {
+            this.showComingSoon(tab);
+            this.showNotification(`${tab.charAt(0).toUpperCase() + tab.slice(1)} - Coming Soon`);
+        }
+    }
+
+    showDashboard() {
+        const mainContent = document.querySelector('.main-content');
+        
+        // Restore original dashboard content if it was replaced
+        if (mainContent.classList.contains('coming-soon-mode')) {
+            mainContent.classList.remove('coming-soon-mode');
+            this.restoreOriginalContent();
+        }
+    }
+
+    showComingSoon(tabName) {
+        const mainContent = document.querySelector('.main-content');
+        
+        // Store original content if not already stored
+        if (!mainContent.classList.contains('coming-soon-mode')) {
+            this.storeOriginalContent();
+            mainContent.classList.add('coming-soon-mode');
+        }
+        
+        // Create coming soon content
+        const comingSoonHTML = `
+            <div class="coming-soon-container">
+                <div class="coming-soon-content">
+                    <div class="coming-soon-icon">🚧</div>
+                    <h2 class="coming-soon-title">${tabName.charAt(0).toUpperCase() + tabName.slice(1)}</h2>
+                    <p class="coming-soon-subtitle">Coming Soon</p>
+                    <p class="coming-soon-description">
+                        We're working hard to bring you amazing ${tabName} features. 
+                        Stay tuned for updates!
+                    </p>
+                    <div class="coming-soon-features">
+                        ${tabName === 'insights' ? `
+                            <div class="feature-item">📊 Sleep Analytics</div>
+                            <div class="feature-item">📈 Growth Tracking</div>
+                            <div class="feature-item">🎯 Smart Recommendations</div>
+                        ` : `
+                            <div class="feature-item">📱 Device Management</div>
+                            <div class="feature-item">🔧 Settings & Controls</div>
+                            <div class="feature-item">🔄 Sync Across Devices</div>
+                        `}
+                    </div>
+                    <button class="back-to-dashboard-btn" onclick="window.babyMonitorApp.backToDashboard()">
+                        ← Back to Dashboard
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        mainContent.innerHTML = comingSoonHTML;
+    }
+
+    storeOriginalContent() {
+        const mainContent = document.querySelector('.main-content');
+        this.originalContent = mainContent.innerHTML;
+    }
+
+    restoreOriginalContent() {
+        const mainContent = document.querySelector('.main-content');
+        if (this.originalContent) {
+            mainContent.innerHTML = this.originalContent;
+        }
+    }
+
+    backToDashboard() {
+        // Click the dashboard nav item
+        const dashboardNav = document.querySelector('.nav-item[data-tab="dashboard"]');
+        if (dashboardNav) {
+            dashboardNav.click();
+        }
     }
 
     toggleLive() {
